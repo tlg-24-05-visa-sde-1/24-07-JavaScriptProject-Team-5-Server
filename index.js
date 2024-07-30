@@ -65,17 +65,71 @@ app.delete("/deleteTeam/:teamId", async (req, res) => {
 });
 
 //Get team route
-app.get("/myTeam", async (req, res) => {
+app.get("/myTeam/:teamId", async (req, res) => {
   try {
-  } catch (error) {}
+    const { teamId } = req.params;
+    const myTeam = await Team.find({ _id: teamId });
+    if (!myTeam) {
+      return res.status(404).json({ Error: "Team not found" });
+    }
+    //send back team if found
+    res.json(myTeam);
+  } catch (error) {
+    res.status(500).json({ Error: "Server error getting Team", error });
+  }
 });
 
 //Put-Add Update team route
-app.put("/addPlayer", async (req, res) => {
+app.put("/addPlayer/:teamId", async (req, res) => {
   try {
-  } catch (error) {}
+    //have teamId coming through params?  or maybe userId?
+    //playerInfo sent through body.
+    const { teamId } = req.params;
+    const { playerName, position } = req.body;
+    //create and save new player in Player collection
+    const newPlayer = new Player({ playerName, position });
+    await newPlayer.save();
+
+    // Update the team to include the new player's _id
+    const updatedTeam = await Team.findByIdAndUpdate(
+      teamId,
+      { $push: { players: newPlayer._id } },
+      { new: true } // Return the updated document, the default is false and this returns the old document before the update
+    );
+    if (!updatedTeam) {
+      return res.status(404).json({ Error: "Team not found" });
+    }
+    res
+      .status(200)
+      .json({ Success: "Player successfully added to Team", updatedTeam });
+  } catch (error) {
+    res.status(500).json({ Error: "Server error adding player to team" });
+  }
 });
 
 //Put-Remove a player from a team
+app.put("/removePlayer/:teamId", async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const { playerId } = req.body;
+
+    const updatedTeam = await Team.findByIdAndUpdate(
+      teamId,
+      { $pull: { players: playerId } },
+      { new: true }
+    );
+    if (!updatedTeam) {
+      return res.status(404).json({ Error: "Team not found" });
+    }
+    res
+      .status(200)
+      .json({ Success: "Player successfully removed from Team", updatedTeam });
+  } catch (error) {
+    res.status(500).json({ Error: "Server error removing player from team" });
+  }
+});
+
+//Players
+//Get All Players Route Handler
 
 app.listen(port, () => console.log(`Basic Server on port ${port}`));
