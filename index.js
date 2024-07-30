@@ -9,8 +9,12 @@ app.use(express.static("../src/client"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-//1) A) Connection- in mongoconnection.js,
+//Bring in Connections - need to add connections for other api calls here?
 require("./connections/mongoconnection");
 
-//bring in model(s)
+//bring in models
 const User = require("./models/UserModel");
+const Team = require("./models/TeamModel");
+const Player = require("./models/PlayerModel");
+
+app.listen(port, () => console.log(`Basic Server on port ${port}`));

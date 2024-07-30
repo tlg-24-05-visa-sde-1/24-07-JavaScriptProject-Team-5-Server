@@ -19,7 +19,12 @@ const userSchema = new mongoose.Schema({
     required: true,
   },
   //  maybe how we connect to other collection
-  // posts: [{ type: mongoose.Schema.ObjectId, ref: "Teams" }],
+  Team: {
+    type: [{ type: Schema.Types.ObjectId, ref: "Team" }],
+    validate: [arrayLimit, "{PATH} exceeds the limit of 1"],
+  },
 });
 
-module.exports = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+
+module.exports = { User };
