@@ -21,7 +21,6 @@ const userSchema = new mongoose.Schema({
   //  maybe how we connect to other collection
   Team: {
     type: [{ type: Schema.Types.ObjectId, ref: "Team" }],
-    validate: [arrayLimit, "{PATH} exceeds the limit of 1"],
   },
 });
 
