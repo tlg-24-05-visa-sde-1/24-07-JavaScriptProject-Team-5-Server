@@ -19,7 +19,11 @@ const userSchema = new mongoose.Schema({
     required: true,
   },
   //  maybe how we connect to other collection
-  // posts: [{ type: mongoose.Schema.ObjectId, ref: "Teams" }],
+  Team: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Team" }],
+  },
 });
 
-module.exports = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+
+module.exports = User;
