@@ -20,10 +20,10 @@ const userSchema = new mongoose.Schema({
   },
   //  maybe how we connect to other collection
   Team: {
-    type: [{ type: Schema.Types.ObjectId, ref: "Team" }],
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Team" }],
   },
 });
 
 const User = mongoose.model("User", userSchema);
 
-module.exports = { User };
+module.exports = User;
