@@ -21,21 +21,22 @@ const Player = require("./models/PlayerModel");
 //Add a Get followed teams if we decide to implement following/followers functionality
 
 //Post- Create team route
-app.post("/createTeam", async (req, res) => {
+app.post("/createTeam/:owner", async (req, res) => {
   try {
     // Pull out data from body.
-    // TODOOwner might be coming from params (const { owner } = req.params)???
+    // TODOOwner might be coming from params
+    const { owner } = req.params;
     const { teamName } = req.body;
     // Save data to a variable
     const newTeam = new Team({
       teamName,
-      //   owner,
+      owner,
     });
     //save to DB- if successful return to client, if not return error
     try {
       const savedTeam = await newTeam.save();
       // Send back the new Team
-      res.status(201).json(savedTeam);
+      res.status(200).json(savedTeam);
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Server error" });
@@ -128,8 +129,18 @@ app.put("/removePlayer/:teamId", async (req, res) => {
     res.status(500).json({ Error: "Server error removing player from team" });
   }
 });
+// Get All Players Route Handler
+app.get("/allPlayers", async (req, res) => {
+  try {
+    const playerList = await Player.find();
+    if (!playerList) {
+      return res.status(404).json({ Error: "Can't get players" });
+    }
+    // Send back players if found
+    res.status(200).json(playerList);
+  } catch (error) {
+    res.status(500).json({ Error: "Server error getting players", error });
+  }
+});
 
-//Players
-//Get All Players Route Handler
-
-app.listen(port, () => console.log(`Basic Server on port ${port}`));
+app.listen(port, () => console.log(`Server running on port ${port}`));
