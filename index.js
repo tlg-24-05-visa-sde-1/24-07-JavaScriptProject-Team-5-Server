@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 3000;
+const mongoose = require("mongoose");
 
 //this is how we tell express to look in the client folder for static content so it can open up the html and load it.
 app.use(express.static("../src/client"));
@@ -13,7 +14,6 @@ app.use(express.urlencoded({ extended: false }));
 require("./connections/mongoconnection");
 
 //bring in models
-const User = require("./models/UserModel");
 const Team = require("./models/TeamModel");
 const Player = require("./models/PlayerModel");
 
@@ -47,6 +47,8 @@ app.post("/createTeam/:owner", async (req, res) => {
   }
 });
 //Delete team route
+
+//TODO- change to look for team based on owner?
 app.delete("/deleteTeam/:teamId", async (req, res) => {
   try {
     //teamId send over in params- pull it out
@@ -61,15 +63,15 @@ app.delete("/deleteTeam/:teamId", async (req, res) => {
     res.json("Team successfully deleted", result);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error deleting team." });
+    res.status(500).json({ Error: "Server error deleting team", error });
   }
 });
 
 //Get team route
-app.get("/myTeam/:teamId", async (req, res) => {
+app.get("/myTeam/:userId", async (req, res) => {
   try {
-    const { teamId } = req.params;
-    const myTeam = await Team.find({ _id: teamId });
+    const { userId } = req.params;
+    const myTeam = await Team.findOne({ owner: userId });
     if (!myTeam) {
       return res.status(404).json({ Error: "Team not found" });
     }
@@ -80,56 +82,91 @@ app.get("/myTeam/:teamId", async (req, res) => {
   }
 });
 
-//Put-Add Update team route
-app.put("/addPlayer/:teamId", async (req, res) => {
+// Put - add player to team route handler
+app.put("/addPlayer/:userId", async (req, res) => {
   try {
-    //have teamId coming through params?  or maybe userId?
-    //playerInfo sent through body.
-    const { teamId } = req.params;
-    const { playerName, position } = req.body;
-    //create and save new player in Player collection
-    const newPlayer = new Player({ playerName, position });
-    await newPlayer.save();
+    const { userId } = req.params; // User ID from the route params
+    const { playerId } = req.body; // Player ID from the body
 
-    // Update the team to include the new player's _id
-    const updatedTeam = await Team.findByIdAndUpdate(
-      teamId,
-      { $push: { players: newPlayer._id } },
-      { new: true } // Return the updated document, the default is false and this returns the old document before the update
-    );
-    if (!updatedTeam) {
-      return res.status(404).json({ Error: "Team not found" });
+    // Find the team associated with the userId
+    const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
+
+    //If team doesn't exist send error
+    if (!team) {
+      return res.status(404).json({ Error: "Team not found for this user" });
     }
-    res
-      .status(200)
-      .json({ Success: "Player successfully added to Team", updatedTeam });
+
+    // Log for debugging
+    console.log(
+      `Received playerId: ${playerId}, team.players: ${team.players}`
+    );
+    // Check if the player is already in the players array to avoid duplicates
+    if (team.players.includes(playerId)) {
+      return res
+        .status(400)
+        .json({ Error: "Player already added to this team" });
+    }
+
+    // Update the team to include the new player's ID
+    team.players.push(playerId);
+    const updatedTeam = await team.save(); // Save and get the updated team
+
+    res.status(200).json({
+      Success: "Player successfully added to Team",
+      updatedTeam: updatedTeam,
+      players: updatedTeam.players, // Return the updated list of players
+    });
   } catch (error) {
-    res.status(500).json({ Error: "Server error adding player to team" });
+    console.error(error); // Log the error for debugging
+    res
+      .status(500)
+      .json({ Error: "Server error adding player to team", error });
   }
 });
 
-//Put-Remove a player from a team
-app.put("/removePlayer/:teamId", async (req, res) => {
+app.delete("/removePlayer/:userId", async (req, res) => {
   try {
-    const { teamId } = req.params;
-    const { playerId } = req.body;
+    const { userId } = req.params; // User ID from the route params
+    const { playerId } = req.body; // Player ID from the body
 
-    const updatedTeam = await Team.findByIdAndUpdate(
-      teamId,
-      { $pull: { players: playerId } },
-      { new: true }
-    );
-    if (!updatedTeam) {
-      return res.status(404).json({ Error: "Team not found" });
+    // Find the team associated with the userId
+    const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
+
+    // If team doesn't exist, send error
+    if (!team) {
+      return res.status(404).json({ Error: "Team not found for this user" });
     }
-    res
-      .status(200)
-      .json({ Success: "Player successfully removed from Team", updatedTeam });
+
+    // Log for debugging
+    console.log(
+      `Received playerId: ${playerId}, team.players: ${team.players}`
+    );
+    // Check if the player is in the players array
+
+    const player = team.players.find((player) => player === playerId);
+    if (!player) {
+      return res.status(400).json({ error: "Player not found in this team" });
+    }
+
+    // Remove the player from the team
+    team.players.splice(playerIndex, 1); // Remove the player from the array
+    const updatedTeam = await team.save(); // Save and get the updated team
+
+    res.status(200).json({
+      Success: "Player successfully removed from Team",
+      updatedTeam: updatedTeam,
+      players: updatedTeam.players, // Return the updated list of players
+    });
   } catch (error) {
-    res.status(500).json({ Error: "Server error removing player from team" });
+    console.error(error); // Log the error for debugging
+    res
+      .status(500)
+      .json({ Error: "Server error removing player from team", error });
   }
 });
+
 // Get All Players Route Handler
+
 app.get("/allPlayers", async (req, res) => {
   try {
     const playerList = await Player.find();
