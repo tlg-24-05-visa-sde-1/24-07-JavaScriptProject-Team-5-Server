@@ -62,21 +62,33 @@ router.delete("/deleteTeam", async (req, res) => {
   }
 });
 
+
 //Get team route
-router.get("/myTeam/", async (req, res) => {
+router.get("/myTeam", async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId } = req.query;
+    console.log("Received userId:", userId);
+
+    if (!userId) {
+      console.log("No userId provided");
+      return res.status(400).json({ Error: "userId is required" });
+    }
+
+    console.log("Searching for team with owner:", userId);
     const myTeam = await Team.findOne({ owner: userId });
+
     if (!myTeam) {
+      console.log("No team found for userId:", userId);
       return res.status(404).json({ Error: "Team not found" });
     }
-    //send back team if found
+
+    console.log("Team found:", myTeam);
     res.json(myTeam);
   } catch (error) {
-    res.status(500).json({ Error: "Server error getting Team", error });
+    console.error("Server error getting Team:", error);
+    res.status(500).json({ Error: "Server error getting Team", error: error.message });
   }
 });
-
 // Put - add player to team route handler
 router.put("/addPlayer", async (req, res) => {
   try {
