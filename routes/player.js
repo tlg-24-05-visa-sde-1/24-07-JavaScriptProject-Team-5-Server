@@ -22,9 +22,9 @@ router.get("/allPlayers", async (req, res) => {
 // Put - add player to team route handler
 router.put("/addPlayer", async (req, res) => {
   try {
-    const { playerId, userId } = req.body; // Player ID from the body
+    const { playerId, userId } = req.body; // get Player ID and userId from the body
 
-    // Find the team associated with the userId
+    // Find the team linked to the userId
     const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
 
     //If team doesn't exist send error
@@ -32,10 +32,6 @@ router.put("/addPlayer", async (req, res) => {
       return res.status(404).json({ Error: "Team not found for this user" });
     }
 
-    // Log for debugging
-    console.log(
-      `Received playerId: ${playerId}, team.players: ${team.players}`
-    );
     // Check if the player is already in the players array to avoid duplicates
     if (team.players.includes(playerId)) {
       return res
@@ -111,19 +107,30 @@ router.put("/addToStarters", async (req, res) => {
   const { playerId, teamId } = req.body;
 
   try {
-    // Find and update the team
-    const team = await Team.findByIdAndUpdate(
-      teamId,
-      {
-        $addToSet: { starters: playerId }, // Add player to starters if not already present
-        $pull: { benchPlayers: playerId }, // Remove player from benchPlayers if present
-      },
-      { new: true } // Return the updated document
-    );
+    // Find the team by ID
+    const team = await Team.findById(teamId);
 
+    //send error if team is not found for some reason
     if (!team) {
       return res.status(404).json({ Error: "Team not found" });
     }
+
+    // Check if player is already in starters
+    if (!team.starters.includes(playerId)) {
+      // Add player to starters if there aren't already 5 in the starters array
+      if (team.starters.length >= 5) {
+        return res
+          .status(400)
+          .json({ Error: "Cannot add more than 5 starters." });
+      }
+      team.starters.push(playerId);
+    }
+
+    // Remove player from benchPlayers they exists in the bencharray
+    team.benchPlayers = team.benchPlayers.filter(
+      (player) => player.toString() !== playerId
+    );
+    await team.save();
 
     res
       .status(200)
