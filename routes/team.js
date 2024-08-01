@@ -5,7 +5,6 @@ const UserModel = require("../models/User");
 const router = express.Router();
 
 //Team route handlers
-//Add a Get followed teams if we decide to implement following/followers functionality
 
 //Post- Create team route
 router.post("/createTeam", async (req, res) => {
@@ -40,7 +39,7 @@ router.delete("/deleteTeam", async (req, res) => {
     // Find the team by owner (userId)
     const myTeam = await Team.findOne({ owner: userId });
 
-    // Handle case of no team found
+    // Send error if team doesn't exist
     if (!myTeam) {
       return res.status(404).json({ error: "Team not found in database" });
     }
@@ -48,12 +47,12 @@ router.delete("/deleteTeam", async (req, res) => {
     // Delete the team
     const result = await Team.deleteOne({ _id: myTeam._id });
 
-    // Handle case where the deletion fails
+    // If there isn't a Team to delete
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: "Team not found in database" });
     }
 
-    // Send success response
+    // Send success response if a team is deleted
     res.json({ message: "Team successfully deleted", result });
   } catch (error) {
     console.error(error);
@@ -96,7 +95,7 @@ router.get("/myTeam", async (req, res) => {
 router.get("/allTeams", async (req, res) => {
   try {
     const teams = await Team.find(); // Find all teams in the database
-    res.status(200).json(teams); // Send the teams back to client as JSON
+    res.status(200).json(teams); // Send the teams back to client
   } catch (error) {
     res
       .status(500)
@@ -106,7 +105,7 @@ router.get("/allTeams", async (req, res) => {
 
 // Follow a team
 router.put("/followTeam", async (req, res) => {
-  //followedTeam should be the userId of that "owner"
+  //followedTeam if the team _id
   const { userId, followedTeam } = req.body;
 
   try {
