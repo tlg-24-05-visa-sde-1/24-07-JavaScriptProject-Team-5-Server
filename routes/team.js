@@ -32,9 +32,9 @@ router.post("/createTeam", async (req, res) => {
 });
 //Delete team route
 
-router.delete("/deleteTeam/:userId", async (req, res) => {
+router.delete("/deleteTeam", async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { userId } = req.body;
 
     // Find the team by owner (userId)
     const myTeam = await Team.findOne({ owner: userId });
@@ -63,9 +63,9 @@ router.delete("/deleteTeam/:userId", async (req, res) => {
 });
 
 //Get team route
-router.get("/myTeam/:userId", async (req, res) => {
+router.get("/myTeam/", async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { userId } = req.body;
     const myTeam = await Team.findOne({ owner: userId });
     if (!myTeam) {
       return res.status(404).json({ Error: "Team not found" });
@@ -78,10 +78,9 @@ router.get("/myTeam/:userId", async (req, res) => {
 });
 
 // Put - add player to team route handler
-router.put("/addPlayer/:userId", async (req, res) => {
+router.put("/addPlayer", async (req, res) => {
   try {
-    const { userId } = req.params; // User ID from the route params
-    const { playerId } = req.body; // Player ID from the body
+    const { playerId, userId } = req.body; // Player ID from the body
 
     // Find the team associated with the userId
     const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
@@ -121,8 +120,7 @@ router.put("/addPlayer/:userId", async (req, res) => {
 
 router.delete("/removePlayer/:userId", async (req, res) => {
   try {
-    const { userId } = req.params; // User ID from the route params
-    const { playerId } = req.body; // Player ID from the body
+    const { playerId, userId } = req.body; // Player ID from the body
 
     // Find the team associated with the userId
     const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
