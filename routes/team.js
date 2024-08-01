@@ -1,5 +1,7 @@
 const express = require("express");
 const Team = require("../models/TeamModel");
+const UserModel = require("../models/User");
+
 const router = express.Router();
 
 //Team route handlers
@@ -31,7 +33,6 @@ router.post("/createTeam", async (req, res) => {
   }
 });
 //Delete team route
-
 router.delete("/deleteTeam", async (req, res) => {
   try {
     const { userId } = req.body;
@@ -65,6 +66,7 @@ router.delete("/deleteTeam", async (req, res) => {
 
 //Get team route
 router.get("/myTeam", async (req, res) => {
+
   try {
     const { userId } = req.query;
     console.log("Received userId:", userId);
@@ -89,92 +91,95 @@ router.get("/myTeam", async (req, res) => {
     res.status(500).json({ Error: "Server error getting Team", error: error.message });
   }
 });
-// Put - add player to team route handler
-router.put("/addPlayer", async (req, res) => {
+
+// Get all teams
+router.get("/allTeams", async (req, res) => {
   try {
-    const { playerId, userId } = req.body; // Player ID from the body
-
-    // Find the team associated with the userId
-    const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
-
-    //If team doesn't exist send error
-    if (!team) {
-      return res.status(404).json({ Error: "Team not found for this user" });
-    }
-
-    // Log for debugging
-    console.log(
-      `Received playerId: ${playerId}, team.players: ${team.players}`
-    );
-    // Check if the player is already in the players array to avoid duplicates
-    if (team.players.includes(playerId)) {
-      return res
-        .status(400)
-        .json({ Error: "Player already added to this team" });
-    }
-
-    // Update the team to include the new player's ID
-    team.players.push(playerId);
-    const updatedTeam = await team.save(); // Save and get the updated team
-
-    res.status(200).json({
-      Success: "Player successfully added to Team",
-      updatedTeam: updatedTeam,
-      players: updatedTeam.players, // Return the updated list of players
-    });
+    const teams = await Team.find(); // Find all teams in the database
+    res.status(200).json(teams); // Send the teams back to client as JSON
   } catch (error) {
-    console.error(error); // Log the error for debugging
     res
       .status(500)
-      .json({ Error: "Server error adding player to team", error });
+      .json({ message: "Error fetching teams", error: error.message });
   }
 });
 
-router.delete("/removePlayer", async (req, res) => {
+// Follow a team
+router.put("/followTeam", async (req, res) => {
+  //followedTeam should be the userId of that "owner"
+  const { userId, followedTeam } = req.body;
+
   try {
-    const { playerId, userId } = req.body; // Player ID from the body
-
-    // Find the team associated with the userId
-    const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
-
-    // If team doesn't exist, send error
-    if (!team) {
-      return res.status(404).json({ Error: "Team not found for this user" });
-    }
-
-    // Log for debugging
-    console.log(
-      `Received playerId: ${playerId}, team.players: ${team.players}`
-    );
-    // Check if the player is in the players array
-
-    // Trim and clean the playerId for comparison
-    const playerIdTrimmed = playerId.trim();
-
-    // Clean up any potential extra characters from player IDs in the array
-    team.players = team.players.map((player) => player.toString().trim());
-
-    // Find the index of the playerId
-    const playerIndex = team.players.indexOf(playerIdTrimmed);
-
-    if (playerIndex === -1) {
-      return res.status(400).json({ Error: "Player not found on this team" });
-    }
-
-    // Remove the player from the team
-    team.players.splice(playerIndex, 1); // Remove the player from the array
-    const updatedTeam = await team.save(); // Save and get the updated team
-
-    res.status(200).json({
-      Success: "Player successfully removed from Team",
-      updatedTeam: updatedTeam,
-      players: updatedTeam.players, // Return the updated list of players
+    // Update the user's followingTeams array to include the followed team
+    await UserModel.findByIdAndUpdate(userId, {
+      $addToSet: { following: followedTeam },
     });
+
+    // Update the followed team's followers array
+    await Team.findByIdAndUpdate(followedTeam, {
+      $addToSet: { followers: userId },
+    });
+
+    res.status(200).json({ message: "Successfully followed the team" });
   } catch (error) {
-    console.error(error); // Log the error for debugging
     res
       .status(500)
-      .json({ Error: "Server error removing player from team", error });
+      .json({ message: "Error following team", error: error.message });
+  }
+});
+
+// UnFollow a team
+router.delete("/unFollowTeam", async (req, res) => {
+  const { userId, unFollowedTeam } = req.body;
+
+  try {
+    // Remove the team from the user's followingTeams array
+    await UserModel.findByIdAndUpdate(userId, {
+      $pull: { following: unFollowedTeam },
+    });
+
+    // Remove the user from the team's followers array
+    await Team.findByIdAndUpdate(unFollowedTeam, {
+      $pull: { followers: userId },
+    });
+
+    res.status(200).json({ message: "Successfully un-followed team" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error un-following team", error: error.message });
+  }
+});
+
+// Get teams you follow
+router.get("/followedTeams", async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Find the user and populate the following field to get the followed users
+    const { userId } = req.body;
+    const user = await UserModel.findById(userId);
+    console.log(user);
+
+    const teams = user.following;
+
+    // Check if the user is following any teams
+    if (!teams || teams.length === 0) {
+      return res.status(200).json({ followedUsersTeams: [] });
+    }
+    // Find all teams owned by the followed users
+    const followedUsersTeams = await Promise.all(
+      teams.map((teamId) => Team.findById(teamId))
+    );
+
+    // Return the teams
+    res.status(200).json({ followedUsersTeams });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      Error: "Error fetching followed users' teams",
+      error: error.message,
+    });
   }
 });
 
