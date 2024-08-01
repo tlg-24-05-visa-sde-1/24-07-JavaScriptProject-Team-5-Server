@@ -50,7 +50,6 @@ router.put("/addPlayer", async (req, res) => {
     res.status(200).json({
       Success: "Player successfully added to Team",
       updatedTeam: updatedTeam,
-      players: updatedTeam.players, // Return the updated list of players
     });
   } catch (error) {
     console.error(error); // Log the error for debugging
@@ -66,28 +65,24 @@ router.delete("/removePlayer", async (req, res) => {
 
   try {
     // Find the team associated with the userId
-    const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
+    // 'owner' is the field referencing userId
+    const team = await Team.findOne({ owner: userId });
 
     // If team doesn't exist, send error
     if (!team) {
       return res.status(404).json({ Error: "Team not found for this user" });
     }
 
-    // Find the player in the team's arrays
+    // Find the player in players array
     const playerInPlayersArray = team.players.includes(playerId);
-    const playerInStartersArray = team.starters.includes(playerId);
-    const playerInBenchArray = team.benchPlayers.includes(playerId);
 
-    if (
-      !playerInPlayersArray &&
-      !playerInStartersArray &&
-      !playerInBenchArray
-    ) {
+    //return error if they're not in it
+    if (!playerInPlayersArray) {
       return res.status(400).json({ Error: "Player not found on this team" });
     }
 
-    // Remove the player from the players, starters, and benchPlayers arrays
-    await Team.findByIdAndUpdate(
+    // Remove the player from the team completely by removing them from players, starters, and benchPlayers arrays
+    const updatedTeam = await Team.findByIdAndUpdate(
       team._id,
       {
         $pull: {
@@ -96,12 +91,12 @@ router.delete("/removePlayer", async (req, res) => {
           benchPlayers: playerId,
         },
       },
-      { new: true } // Return the updated document
+      { new: true } // Return the updated team info from Mongo
     );
 
     res.status(200).json({
       Success: "Player successfully removed from Team",
-      // Return the updated team object, or you can retrieve it again if needed
+      updatedTeam,
     });
   } catch (error) {
     console.error(error);
