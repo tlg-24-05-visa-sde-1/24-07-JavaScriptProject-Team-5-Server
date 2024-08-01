@@ -118,7 +118,7 @@ router.put("/addPlayer", async (req, res) => {
   }
 });
 
-router.delete("/removePlayer/:userId", async (req, res) => {
+router.delete("/removePlayer", async (req, res) => {
   try {
     const { playerId, userId } = req.body; // Player ID from the body
 
@@ -163,21 +163,6 @@ router.delete("/removePlayer/:userId", async (req, res) => {
     res
       .status(500)
       .json({ Error: "Server error removing player from team", error });
-  }
-});
-
-// Get All Players Route Handler
-
-router.get("/allPlayers", async (req, res) => {
-  try {
-    const playerList = await Player.find();
-    if (!playerList) {
-      return res.status(404).json({ Error: "Can't get players" });
-    }
-    // Send back players if found
-    res.status(200).json(playerList);
-  } catch (error) {
-    res.status(500).json({ Error: "Server error getting players", error });
   }
 });
 
