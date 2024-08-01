@@ -1,5 +1,7 @@
 const express = require("express");
 const Team = require("../models/TeamModel");
+const UserModel = require("../models/User");
+
 const router = express.Router();
 
 //Team route handlers
@@ -143,7 +145,9 @@ router.get("/followedTeams", async (req, res) => {
     const { userId } = req.body;
     const user = await UserModel.findById(userId);
     console.log(user);
+
     const teams = user.following;
+
     // Check if the user is following any teams
     if (!teams || teams.length === 0) {
       return res.status(200).json({ followedUsersTeams: [] });
