@@ -5,6 +5,14 @@ const teamSchema = new mongoose.Schema({
   players: {
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
   },
+  starters: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
+    default: [],
+  },
+  benchPlayers: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
+    default: [],
+  },
   rating: {
     type: Number,
   },
