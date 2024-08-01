@@ -9,13 +9,11 @@ const router = express.Router();
 router.post("/createTeam", async (req, res) => {
   try {
     // Pull out data from body.
-    // TODOOwner might be coming from params
-    // const { owner } = req.params;
-    const { teamName, owner } = req.body;
+    const { teamName, userId } = req.body;
     // Save data to a variable
     const newTeam = new Team({
       teamName,
-      owner,
+      owner: userId,
     });
     //save to DB- if successful return to client, if not return error
     try {
@@ -33,29 +31,42 @@ router.post("/createTeam", async (req, res) => {
   }
 });
 //Delete team route
-router.delete("/deleteTeam/:teamId", async (req, res) => {
+
+router.delete("/deleteTeam/:userId", async (req, res) => {
   try {
-    //teamId send over in params- pull it out
-    const { teamId } = req.params;
-    //tell DB to delete it
-    const result = await Team.deleteOne({ _id: teamId });
-    //handle case of there being no team
+    const { userId } = req.params;
+
+    // Find the team by owner (userId)
+    const myTeam = await Team.findOne({ owner: userId });
+
+    // Handle case of no team found
+    if (!myTeam) {
+      return res.status(404).json({ error: "Team not found in database" });
+    }
+
+    // Delete the team
+    const result = await Team.deleteOne({ _id: myTeam._id });
+
+    // Handle case where the deletion fails
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: "Team not found in database" });
     }
-    //send deletedTeam to client
-    res.json("Team successfully deleted", result);
+
+    // Send success response
+    res.json({ message: "Team successfully deleted", result });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error deleting team." });
+    res
+      .status(500)
+      .json({ error: "Server error deleting team", details: error.message });
   }
 });
 
 //Get team route
-router.get("/myTeam/:teamId", async (req, res) => {
+router.get("/myTeam/:userId", async (req, res) => {
   try {
-    const { teamId } = req.params;
-    const myTeam = await Team.find({ _id: teamId });
+    const { userId } = req.params;
+    const myTeam = await Team.findOne({ owner: userId });
     if (!myTeam) {
       return res.status(404).json({ Error: "Team not found" });
     }
@@ -66,53 +77,109 @@ router.get("/myTeam/:teamId", async (req, res) => {
   }
 });
 
-//Put-Add Update team route
-router.put("/addPlayer/:teamId", async (req, res) => {
+// Put - add player to team route handler
+router.put("/addPlayer/:userId", async (req, res) => {
   try {
-    //have teamId coming through params?  or maybe userId?
-    //playerInfo sent through body.
-    const { teamId } = req.params;
-    const { playerName, position } = req.body;
-    //create and save new player in Player collection
-    const newPlayer = new Player({ playerName, position });
-    await newPlayer.save();
+    const { userId } = req.params; // User ID from the route params
+    const { playerId } = req.body; // Player ID from the body
 
-    // Update the team to include the new player's _id
-    const updatedTeam = await Team.findByIdAndUpdate(
-      teamId,
-      { $push: { players: newPlayer._id } },
-      { new: true } // Return the updated document, the default is false and this returns the old document before the update
-    );
-    if (!updatedTeam) {
-      return res.status(404).json({ Error: "Team not found" });
+    // Find the team associated with the userId
+    const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
+
+    //If team doesn't exist send error
+    if (!team) {
+      return res.status(404).json({ Error: "Team not found for this user" });
     }
-    res
-      .status(200)
-      .json({ Success: "Player successfully added to Team", updatedTeam });
+
+    // Log for debugging
+    console.log(
+      `Received playerId: ${playerId}, team.players: ${team.players}`
+    );
+    // Check if the player is already in the players array to avoid duplicates
+    if (team.players.includes(playerId)) {
+      return res
+        .status(400)
+        .json({ Error: "Player already added to this team" });
+    }
+
+    // Update the team to include the new player's ID
+    team.players.push(playerId);
+    const updatedTeam = await team.save(); // Save and get the updated team
+
+    res.status(200).json({
+      Success: "Player successfully added to Team",
+      updatedTeam: updatedTeam,
+      players: updatedTeam.players, // Return the updated list of players
+    });
   } catch (error) {
-    res.status(500).json({ Error: "Server error adding player to team" });
+    console.error(error); // Log the error for debugging
+    res
+      .status(500)
+      .json({ Error: "Server error adding player to team", error });
   }
 });
 
-//Put-Remove a player from a team
-router.put("/removePlayer/:teamId", async (req, res) => {
+router.delete("/removePlayer/:userId", async (req, res) => {
   try {
-    const { teamId } = req.params;
-    const { playerId } = req.body;
+    const { userId } = req.params; // User ID from the route params
+    const { playerId } = req.body; // Player ID from the body
 
-    const updatedTeam = await Team.findByIdAndUpdate(
-      teamId,
-      { $pull: { players: playerId } },
-      { new: true }
-    );
-    if (!updatedTeam) {
-      return res.status(404).json({ Error: "Team not found" });
+    // Find the team associated with the userId
+    const team = await Team.findOne({ owner: userId }); // 'owner' is the field referencing userId
+
+    // If team doesn't exist, send error
+    if (!team) {
+      return res.status(404).json({ Error: "Team not found for this user" });
     }
-    res
-      .status(200)
-      .json({ Success: "Player successfully removed from Team", updatedTeam });
+
+    // Log for debugging
+    console.log(
+      `Received playerId: ${playerId}, team.players: ${team.players}`
+    );
+    // Check if the player is in the players array
+
+    // Trim and clean the playerId for comparison
+    const playerIdTrimmed = playerId.trim();
+
+    // Clean up any potential extra characters from player IDs in the array
+    team.players = team.players.map((player) => player.toString().trim());
+
+    // Find the index of the playerId
+    const playerIndex = team.players.indexOf(playerIdTrimmed);
+
+    if (playerIndex === -1) {
+      return res.status(400).json({ Error: "Player not found on this team" });
+    }
+
+    // Remove the player from the team
+    team.players.splice(playerIndex, 1); // Remove the player from the array
+    const updatedTeam = await team.save(); // Save and get the updated team
+
+    res.status(200).json({
+      Success: "Player successfully removed from Team",
+      updatedTeam: updatedTeam,
+      players: updatedTeam.players, // Return the updated list of players
+    });
   } catch (error) {
-    res.status(500).json({ Error: "Server error removing player from team" });
+    console.error(error); // Log the error for debugging
+    res
+      .status(500)
+      .json({ Error: "Server error removing player from team", error });
+  }
+});
+
+// Get All Players Route Handler
+
+router.get("/allPlayers", async (req, res) => {
+  try {
+    const playerList = await Player.find();
+    if (!playerList) {
+      return res.status(404).json({ Error: "Can't get players" });
+    }
+    // Send back players if found
+    res.status(200).json(playerList);
+  } catch (error) {
+    res.status(500).json({ Error: "Server error getting players", error });
   }
 });
 
