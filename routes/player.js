@@ -107,7 +107,6 @@ router.delete("/removePlayer", async (req, res) => {
 });
 
 //routes for bench and starters
-//TODO - do we need separate routes to get the bench and starter arrays or can we just return the updated ones here?
 router.put("/addToStarters", async (req, res) => {
   const { playerId, teamId } = req.body;
 
